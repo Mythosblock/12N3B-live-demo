@@ -1,0 +1,24 @@
+# Firebase App Hosting — project n3b-5db0f
+# SSR via Nitro preset firebase_app_hosting. Do not use static Hosting.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+scripts:
+  buildCommand: npm run build
+  runCommand: node .output/server/index.mjs
+
+env:
+  - variable: VITE_AUTH_ENABLED
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NITRO_PRESET
+    value: firebase_app_hosting
+    availability:
+      - BUILD
