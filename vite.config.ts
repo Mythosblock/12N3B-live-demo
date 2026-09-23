@@ -142,6 +142,58 @@ function authPopupPlugin(): Plugin {
   };
 }
 
+/**
+ * BLINKSYNC REST facade — `POST /api/evaluate`.
+ *
+ * Registered here (before tanstackStart) the same way `/auth/popup` is, because
+ * this pinned @tanstack/react-start (1.168) does not ship file-based server/API
+ * routes (`createAPIFileRoute`). The handler wraps the same `evaluateToBrains`
+ * adapter exposed to the app as the `evaluateBrains` server function, so the
+ * curl-able endpoint and the in-app RPC share one code path. `apply: "serve"`
+ * — this covers the live preview / demo surface.
+ */
+function blinksyncApiPlugin(): Plugin {
+  return {
+    name: "app-builder:blinksync-evaluate",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const pathOnly = (req.url ?? "").split("?", 1)[0] ?? "";
+        if (pathOnly !== "/api/evaluate") {
+          next();
+          return;
+        }
+        const json = (status: number, payload: unknown) => {
+          res.statusCode = status;
+          res.setHeader("content-type", "application/json; charset=utf-8");
+          res.end(JSON.stringify(payload));
+        };
+        if ((req.method ?? "GET").toUpperCase() !== "POST") {
+          json(405, { error: "Method Not Allowed. Use POST." });
+          return;
+        }
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(chunk as Buffer);
+          const raw = Buffer.concat(chunks).toString("utf8").trim();
+          const body = raw ? JSON.parse(raw) : {};
+          const mod = (await server.ssrLoadModule("/src/lib/emo1/blinksync.server.ts")) as {
+            evaluateToBrains: (input: { text: string; evidenceClass?: string; scenarioId?: string | null }) => unknown;
+          };
+          json(200, mod.evaluateToBrains({ text: body.text, evidenceClass: body.evidenceClass, scenarioId: body.scenarioId ?? null }));
+        } catch (err) {
+          json(400, {
+            ok: false,
+            executionState: "REJECT",
+            error: "Evaluation pipeline failed",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+    },
+  };
+}
+
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
@@ -161,6 +213,9 @@ export default defineConfig(({ command, isPreview }) => ({
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
+    // BLINKSYNC REST facade: POST /api/evaluate. Same reason — must run before
+    // TanStack Start / the SPA HTML fallback.
+    blinksyncApiPlugin(),
     // Dev-only /__app-env, read by scripts/check-auth-invariant.mjs.
     appEnvPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.

@@ -13,6 +13,12 @@ const IdSchema = z.object({
   requestId: z.string().min(3).max(80),
 });
 
+const EvaluateSchema = z.object({
+  text: z.string().min(1).max(8000),
+  evidenceClass: z.enum(["synthetic", "static_fixture", "customer_provided", "live_retrieved"]).optional(),
+  scenarioId: z.string().max(80).nullable().optional(),
+});
+
 export type RuntimeManifestDTO = {
   runtime_id: string;
   runtime_version: string;
@@ -60,6 +66,26 @@ export const submitEvaluation = createServerFn({ method: "POST" })
         scenarioId: data.scenarioId,
       });
       return { ok: true, record };
+    } catch (err) {
+      return asError(err);
+    }
+  });
+
+/**
+ * BLINKSYNC three-brain facade over the core engine. Production-safe RPC path
+ * used by the app; the literal `POST /api/evaluate` REST route is wired as a
+ * dev middleware in vite.config.ts against the same `evaluateToBrains` adapter.
+ */
+export const evaluateBrains = createServerFn({ method: "POST" })
+  .validator((data) => EvaluateSchema.parse(data))
+  .handler(async ({ data }) => {
+    try {
+      const { evaluateToBrains } = await import("./blinksync.server.ts");
+      return evaluateToBrains({
+        text: data.text,
+        evidenceClass: data.evidenceClass as EvidenceClass | undefined,
+        scenarioId: data.scenarioId,
+      });
     } catch (err) {
       return asError(err);
     }
