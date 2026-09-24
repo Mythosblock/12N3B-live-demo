@@ -1,0 +1,31 @@
+name: Secret Safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  secret-safety:
+    name: Check repository for obvious secret files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reject tracked environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git ls-files | grep -E '(^|/)\.env($|\.|/)' ; then
+            echo "ERROR: tracked .env file detected."
+            exit 1
+          fi
+
+          echo "No tracked .env files detected."

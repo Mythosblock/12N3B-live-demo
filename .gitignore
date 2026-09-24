@@ -19,3 +19,8 @@ ui-debug.log
 .grok/*.html
 .grok/og-render.mjs
 .grok/status
+
+# Local secrets
+.env
+.env.local
+.env.*.local

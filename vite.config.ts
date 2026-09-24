@@ -3,9 +3,9 @@ import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { nitro } from "nitro/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import netlify from "@netlify/vite-plugin-tanstack-start";
 
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
@@ -198,9 +198,9 @@ export default defineConfig({
 
     // TanStack Start SSR.
     tanstackStart(),
+    // Nitro deployment/runtime layer for Vercel.
+    nitro(),
 
-    // Official Netlify TanStack Start deployment integration.
-    netlify(),
 
     viteReact(),
   ],
